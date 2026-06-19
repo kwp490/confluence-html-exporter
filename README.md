@@ -14,9 +14,9 @@ Designed to share Confluence documentation with external stakeholders who do not
 - Downloads all images found in page content and embeds them as base64 `data:` URIs directly in each HTML file
 - Downloads non-image file attachments and packages them in `/attachments/` inside the zip with updated relative links
 - Generates a left-sidebar navigation tree present on every page with the current page highlighted
-- Converts internal Confluence links to relative links within the zip; external links open in a new tab
+- Converts internal Confluence links to relative links within the zip; external links open in a new tab with `rel="noopener noreferrer"`
 - Outputs a single `.zip` named `{root-page-slug}-{YYYY-MM-DD}.zip`
-- Runs on macOS and Windows (Python 3.8+)
+- Runs on macOS and Windows (Python 3.10+)
 - All credentials are stored in a `.env` file; nothing is hardcoded
 - Interactive setup wizard guides first-time users through credential configuration with live validation
 
@@ -24,7 +24,7 @@ Designed to share Confluence documentation with external stakeholders who do not
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - pip
 - A Confluence Cloud account with read access to the target space
 - A Confluence API token (see Configuration section)
@@ -56,6 +56,8 @@ If any credentials are missing, invalid, or still set to placeholder values, the
 
 In non-interactive environments (e.g. CI), the script exits with an error if credentials are incomplete  set them via environment variables or `.env` beforehand.
 
+> HTTPS required: The Confluence base URL must use `https://` so your email and API token are never sent over an unencrypted connection. Plain `http://` is rejected unless you explicitly opt in for a trusted on-prem network by setting `CONFLUENCE_ALLOW_INSECURE_HTTP=1`.
+
 ### `.env.example`
 
 ```
@@ -71,6 +73,7 @@ CONFLUENCE_API_TOKEN=your_api_token_here
 | `CONFLUENCE_BASE_URL` | Base URL of your Confluence instance | `https://example.atlassian.net` |
 | `CONFLUENCE_EMAIL` | Your Atlassian account email address | `user@example.com` |
 | `CONFLUENCE_API_TOKEN` | Your Confluence API token | `ATATTxxx...` |
+| `CONFLUENCE_ALLOW_INSECURE_HTTP` | _(optional)_ Set to `1` to allow an `http://` base URL on a trusted network. Not recommended. | `1` |
 
 ### Generating an API Token
 
@@ -137,8 +140,9 @@ confluence-html-exporter/
 └── src/
     ├── __init__.py
     ├── api.py                    # Confluence REST API client
+    ├── setup.py                  # Interactive credential setup wizard
     ├── tree.py                   # Page tree traversal and filter logic
-    ├── renderer.py               # HTML page generation
+    ├── renderer.py               # HTML generation + sanitization
     └── utils.py                  # URL parsing, slugification, logging helpers
 ```
 
@@ -156,11 +160,20 @@ confluence-html-exporter/
 ## Security
 
 - **Automated secret scanning** runs on every push and pull request via the
-  [`Secret Scan`](.github/workflows/secret-scan.yml) GitHub Actions workflow
-  (gitleaks), which also scans the full git history. Custom rules and
-  placeholder allowlists live in [`.gitleaks.toml`](.gitleaks.toml).
+  [`Secret Scan`](.github/workflows/secret-scan.yml) GitHub Actions workflow.
+  It installs the gitleaks CLI and runs `gitleaks detect --log-opts=--all`,
+  which walks every commit on all refs (full history), so secrets that were
+  committed and later removed are still caught. Custom rules and placeholder
+  allowlists live in [`.gitleaks.toml`](.gitleaks.toml).
 - GitHub-native **secret scanning** and **push protection** are also enabled on
   this repository.
+- **Credentials are only ever transmitted over HTTPS.** Plain `http://` base
+  URLs are rejected unless explicitly overridden (see
+  `CONFLUENCE_ALLOW_INSECURE_HTTP`), so your API token cannot be intercepted.
+- **Exported HTML is sanitized** before packaging: script-bearing tags, inline
+  event handlers, dangerous URL schemes, and outbound resource-loading
+  attributes (`srcset`, `poster`, CSS `url(...)`, etc.) are stripped so the
+  offline package cannot run scripts or silently contact tracking hosts.
 - Never commit a real `.env`; it is git-ignored. Only `.env.example` with
   placeholder values is tracked.
 

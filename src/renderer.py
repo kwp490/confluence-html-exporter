@@ -15,6 +15,28 @@ from .utils import sanitize_attachment_filename
 _DANGEROUS_TAGS = ("script", "iframe", "object", "embed", "link", "meta", "base", "form")
 _DANGEROUS_URL_ATTRS = ("href", "src", "xlink:href", "action", "formaction")
 
+# Attributes whose only purpose is to trigger an outbound network request for a
+# resource. The offline package embeds Confluence-hosted images as base64 data
+# URIs (see _embed_images), so these attributes would only ever point at
+# external/third-party hosts when the document is opened. They are stripped
+# entirely to prevent the exported HTML from "phoning home" or leaking the
+# reader's IP/referrer to a tracker the moment the file is opened.
+_RESOURCE_LOADING_ATTRS = (
+    "srcset",
+    "background",
+    "poster",
+    "lowsrc",
+    "dynsrc",
+    "data-src",
+    "data-srcset",
+    "data-background",
+    "data-original",
+    "data-lazy-src",
+)
+
+# Matches a CSS url(...) reference inside an inline style attribute.
+_CSS_URL_RE = re.compile(r"url\s*\([^)]*\)", re.IGNORECASE)
+
 
 def _is_dangerous_url(value: str) -> bool:
     if not value:
@@ -23,11 +45,27 @@ def _is_dangerous_url(value: str) -> bool:
     return stripped.startswith(("javascript:", "vbscript:", "data:text/html"))
 
 
+def _sanitize_style(value: str) -> str | None:
+    """
+    Neutralizes an inline ``style`` attribute. Any ``url(...)`` reference (which
+    would load an external image/font and leak a request) and any CSS
+    ``expression(...)`` (legacy IE script execution) are removed. Returns the
+    cleaned style string, or None if nothing meaningful remains.
+    """
+    cleaned = _CSS_URL_RE.sub("", value)
+    if "expression" in cleaned.lower():
+        # Drop the whole declaration rather than risk a partial bypass.
+        return None
+    cleaned = cleaned.strip().strip(";").strip()
+    return cleaned or None
+
+
 def sanitize_html(soup: BeautifulSoup) -> BeautifulSoup:
     """
-    Removes script-bearing tags, inline event handlers, and dangerous URL
-    schemes from untrusted Confluence-exported HTML so the offline package
-    cannot execute arbitrary JavaScript when opened in a browser.
+    Removes script-bearing tags, inline event handlers, dangerous URL schemes,
+    and outbound resource-loading attributes from untrusted Confluence-exported
+    HTML so the offline package cannot execute arbitrary JavaScript or silently
+    contact external/tracking hosts when opened in a browser.
     """
     for tag_name in _DANGEROUS_TAGS:
         for tag in soup.find_all(tag_name):
@@ -39,10 +77,19 @@ def sanitize_html(soup: BeautifulSoup) -> BeautifulSoup:
             if attr_lower.startswith("on"):
                 del tag.attrs[attr]
                 continue
+            if attr_lower in _RESOURCE_LOADING_ATTRS:
+                # Strip resource-loading attributes that would fetch from an
+                # external host (srcset, poster, CSS-less background, etc.).
+                del tag.attrs[attr]
+                continue
             if attr_lower in _DANGEROUS_URL_ATTRS and _is_dangerous_url(str(tag.attrs.get(attr, ""))):
                 del tag.attrs[attr]
-            elif attr_lower == "style" and "expression" in str(tag.attrs.get(attr, "")).lower():
-                del tag.attrs[attr]
+            elif attr_lower == "style":
+                cleaned = _sanitize_style(str(tag.attrs.get(attr, "")))
+                if cleaned is None:
+                    del tag.attrs[attr]
+                else:
+                    tag.attrs[attr] = cleaned
     return soup
 
 

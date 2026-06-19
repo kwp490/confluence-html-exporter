@@ -22,14 +22,43 @@ REQUIRED_KEYS = ["CONFLUENCE_BASE_URL", "CONFLUENCE_EMAIL", "CONFLUENCE_API_TOKE
 
 # Validation helpers --------------------------------------------------------
 
+def _allow_insecure_http() -> bool:
+    """
+    Returns True if the user has explicitly opted in to insecure http:// URLs
+    via the CONFLUENCE_ALLOW_INSECURE_HTTP environment variable.
+
+    By default credentials are only ever sent over HTTPS so the API token and
+    email cannot be intercepted on the network. Plain http:// is therefore
+    rejected unless this escape hatch is set (e.g. for an internal on-prem
+    Confluence reachable only over a trusted network).
+    """
+    return os.environ.get("CONFLUENCE_ALLOW_INSECURE_HTTP", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+
 def _validate_base_url(value: str) -> str | None:
-    """Returns an error message if *value* is not a valid Confluence base URL."""
+    """Returns an error message if *value* is not a valid Confluence base URL.
+
+    HTTPS is required by default; plain http:// is only accepted when
+    CONFLUENCE_ALLOW_INSECURE_HTTP is set, because Basic Auth credentials are
+    sent on every request and must not travel over an unencrypted connection.
+    """
     value = value.strip().rstrip("/")
     if not value:
         return "Base URL cannot be empty."
     parsed = urlparse(value)
-    if parsed.scheme not in ("http", "https"):
-        return "URL must start with https:// (or http:// for on-prem)."
+    if parsed.scheme == "http":
+        if not _allow_insecure_http():
+            return (
+                "Refusing http:// - credentials would be sent unencrypted. "
+                "Use https://, or set CONFLUENCE_ALLOW_INSECURE_HTTP=1 to "
+                "override for a trusted on-prem network."
+            )
+    elif parsed.scheme != "https":
+        return "URL must start with https:// (http:// only with explicit opt-in)."
     if not parsed.netloc or "." not in parsed.netloc:
         return "URL does not look like a valid hostname."
     if parsed.path and parsed.path != "/":
