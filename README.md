@@ -140,7 +140,7 @@ The launchers work even if you run them directly from inside the zip viewer: if 
 
 **Option 2 — Manual.** Copy the dated export folder (for example `page-title-2025-06-19\`) to any location and open its `index.html`.
 
-`START-HERE.txt` and `START-HERE.html` in the zip root present these same two options (the HTML version includes clickable launcher links).
+`START-HERE.txt` and `START-HERE.html` in the zip root present these same two options. Note: open `START-HERE.html` only **after** extracting the zip — when opened from inside the Windows/macOS zip viewer, only that single file is unpacked to a temporary folder, so links to sibling files won't resolve. The most reliable action straight from the zip window is to double-click the launcher file itself.
 
 ---
 

@@ -103,20 +103,22 @@ def generate_start_here_html(package_dir_name: str) -> str:
         h2 {{ margin-top: 0; }}
         code {{ background: #f4f4f4; padding: 0.1rem 0.3rem; border-radius: 4px; }}
         .note {{ color: #555; font-size: 0.9rem; }}
+        .tip {{ background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; padding: 0.75rem 1rem; }}
     </style>
 </head>
 <body>
     <h1>Confluence Export Package</h1>
+    <p class="tip">If you are reading this from inside the zip window, first <strong>extract / unzip the package</strong> (Windows: <em>Extract All</em>; macOS: double-click the zip). Then use one of the two options below. Launchers and links cannot run while still inside the zip.</p>
     <p>Choose one of the two options below to view this exported Confluence content.</p>
 
     <div class="option">
         <h2>Option 1 &mdash; Auto-extract and open</h2>
-        <p>Click the launcher for your operating system. It extracts the export to a temporary folder and opens it automatically in your browser:</p>
+        <p>Double-click the launcher for your operating system. It opens the export automatically in your browser:</p>
         <ul>
-            <li><a href="Run-Export-Windows.cmd">Windows: Run-Export-Windows.cmd</a></li>
-            <li><a href="Run-Export-Mac.command">macOS: Run-Export-Mac.command</a></li>
+            <li>Windows: <code>Run-Export-Windows.cmd</code></li>
+            <li>macOS: <code>Run-Export-Mac.command</code></li>
         </ul>
-        <p class="note">Depending on your browser or OS security settings, you may need to confirm a prompt, or right-click the launcher and choose <em>Open</em>.</p>
+        <p class="note">Double-click the launcher file directly (in the extracted folder, or in the zip window). Depending on your browser or OS security settings, you may need to confirm a prompt, or right-click the launcher and choose <em>Open</em>.</p>
     </div>
 
     <div class="option">
@@ -135,12 +137,15 @@ def generate_start_here_txt(package_dir_name: str) -> str:
     return (
         "Confluence Export - START HERE\n"
         "==============================\n\n"
+        "TIP: If you are viewing this from inside the zip, extract / unzip\n"
+        "the package first (Windows: 'Extract All'; macOS: double-click the\n"
+        "zip). Then use one of the two options below.\n\n"
         "Choose ONE of the two options below.\n\n"
         "------------------------------------------------------------\n"
         "OPTION 1 - Auto-extract and open\n"
         "------------------------------------------------------------\n"
-        "Run the launcher for your operating system. It extracts the\n"
-        "export to a temporary folder and opens index.html for you:\n"
+        "Double-click the launcher for your operating system. It opens\n"
+        "index.html in your browser for you:\n"
         "   - Windows: run 'Run-Export-Windows.cmd'\n"
         "   - macOS:   run 'Run-Export-Mac.command'\n\n"
         "------------------------------------------------------------\n"
