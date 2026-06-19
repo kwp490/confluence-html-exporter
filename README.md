@@ -16,6 +16,11 @@ Designed to share Confluence documentation with external stakeholders who do not
 - Generates a left-sidebar navigation tree present on every page with the current page highlighted
 - Converts internal Confluence links to relative links within the zip; external links open in a new tab with `rel="noopener noreferrer"`
 - Outputs a single `.zip` named `{root-page-slug}-{YYYY-MM-DD}.zip`
+- Adds root-level startup guidance (`START-HERE.txt` / `START-HERE.html`) explaining both manual and auto-run options
+- Includes cross-platform launchers in the zip root:
+  - `Run-Export-Windows.cmd` (Windows)
+  - `Run-Export-Mac.command` (macOS)
+  These launchers copy/extract the export to a temporary folder and open `index.html` automatically.
 - Runs on macOS and Windows (Python 3.10+)
 - All credentials are stored in a `.env` file; nothing is hardcoded
 - Interactive setup wizard guides first-time users through credential configuration with live validation
@@ -122,7 +127,13 @@ page-title-2025-06-19.zip
 
 When `-o`/`--output` is supplied, the zip is written to the directory or file path you specify (creating any missing folders). The final location is printed as `Export complete: {path}`.
 
-Unzip and open `index.html` in any browser to navigate the exported content. No internet connection is required after unzipping.
+When you open the zip, use one of these options:
+
+1. Manual (recommended): copy the dated export folder (for example `page-title-2025-06-19\`) to any location and open its `index.html`.
+2. Auto-runner (Windows): run `Run-Export-Windows.cmd` from the zip root.
+3. Auto-runner (macOS): run `Run-Export-Mac.command` from the zip root.
+
+`START-HERE.txt` and `START-HERE.html` in the zip root provide the same quick guidance.
 
 ---
 

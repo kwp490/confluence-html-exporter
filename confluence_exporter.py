@@ -71,7 +71,7 @@ def confirm_export(assume_yes: bool = False) -> None:
 
 def generate_index_html(root_page: dict) -> str:
     """
-    Generates the meta-refresh redirect index.html for the zip root.
+    Generates the meta-refresh redirect index.html for the export folder root.
     """
     target = root_page["html_filename"]
     return f"""<!DOCTYPE html>
@@ -87,6 +87,148 @@ def generate_index_html(root_page: dict) -> str:
 </html>"""
 
 
+def generate_start_here_html(package_dir_name: str) -> str:
+    """
+    Generates a root-level guidance page shown when opening the zip directly.
+    """
+    package_index = f"{package_dir_name}/index.html"
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Confluence Export - Start Here</title>
+</head>
+<body>
+    <h1>Confluence Export Package</h1>
+    <p><strong>Recommended (manual):</strong> copy the <code>{package_dir_name}</code> folder to any location, then open <code>index.html</code> inside that folder.</p>
+    <p><strong>Auto-runner:</strong> run <code>Run-Export-Windows.cmd</code> (Windows) or <code>Run-Export-Mac.command</code> (macOS). It extracts to a temporary folder and opens the export automatically.</p>
+    <p><strong>If already extracted:</strong> <a href="{package_index}">open the exported site</a>.</p>
+</body>
+</html>"""
+
+
+def generate_start_here_txt(package_dir_name: str) -> str:
+    """
+    Generates a root-level plain-text quick-start guide.
+    """
+    return (
+        "Confluence Export - START HERE\n"
+        "==============================\n\n"
+        "You can use this package in either of these ways:\n"
+        f"1) Manual (recommended): copy the '{package_dir_name}' folder to any location and open 'index.html' inside that folder.\n"
+        "2) Auto-runner:\n"
+        "   - Windows: run 'Run-Export-Windows.cmd'\n"
+        "   - macOS: run 'Run-Export-Mac.command'\n\n"
+        "Both runners extract/copy the export to a temporary folder and open index.html automatically.\n"
+    )
+
+
+def generate_windows_launcher(package_dir_name: str) -> str:
+    """
+    Generates a Windows launcher that opens the export from a temporary folder.
+    """
+    return f"""@echo off
+setlocal EnableExtensions EnableDelayedExpansion
+
+set "SCRIPT_DIR=%~dp0"
+set "PACKAGE_DIR_NAME={package_dir_name}"
+set "TEMP_ROOT=%TEMP%\\confluence-export-%RANDOM%%RANDOM%"
+set "TARGET_DIR=%TEMP_ROOT%\\%PACKAGE_DIR_NAME%"
+
+echo Confluence export quick start:
+echo   Manual: copy "%PACKAGE_DIR_NAME%" to any folder, then open index.html.
+echo   Auto-runner: this script opens it automatically from a temp folder.
+echo.
+
+if exist "%SCRIPT_DIR%%PACKAGE_DIR_NAME%\\index.html" (
+    robocopy "%SCRIPT_DIR%%PACKAGE_DIR_NAME%" "%TARGET_DIR%" /E /NFL /NDL /NJH /NJS /NC /NS >nul
+    goto open_site
+)
+
+set "ARCHIVE_PATH="
+for %%I in ("%CD%") do (
+    if /I "%%~xI"==".zip" if exist "%%~fI" set "ARCHIVE_PATH=%%~fI"
+)
+
+if not defined ARCHIVE_PATH (
+    echo Could not locate the export files automatically.
+    echo Please extract the zip, copy "%PACKAGE_DIR_NAME%" to any folder, and open index.html.
+    pause
+    exit /b 1
+)
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '%ARCHIVE_PATH%' -DestinationPath '%TEMP_ROOT%' -Force"
+
+if errorlevel 1 (
+    echo Automatic extraction failed.
+    echo Please extract manually and open "%PACKAGE_DIR_NAME%\\index.html".
+    pause
+    exit /b 1
+)
+
+:open_site
+if not exist "%TARGET_DIR%\\index.html" (
+    echo Could not find "%TARGET_DIR%\\index.html".
+    echo Please extract manually and open index.html.
+    pause
+    exit /b 1
+)
+
+start "" "%TARGET_DIR%\\index.html"
+echo Opened "%TARGET_DIR%\\index.html"
+endlocal
+exit /b 0
+"""
+
+
+def generate_mac_launcher(package_dir_name: str) -> str:
+    """
+    Generates a macOS launcher that opens the export from a temporary folder.
+    """
+    return f"""#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PACKAGE_DIR_NAME="{package_dir_name}"
+TEMP_ROOT="$(mktemp -d "${{TMPDIR:-/tmp}}/confluence-export.XXXXXX")"
+TARGET_DIR="${{TEMP_ROOT}}/${{PACKAGE_DIR_NAME}}"
+
+echo "Confluence export quick start:"
+echo "  Manual: copy '${{PACKAGE_DIR_NAME}}' to any folder, then open index.html."
+echo "  Auto-runner: this script opens it automatically from a temp folder."
+echo
+
+if [[ -f "${{SCRIPT_DIR}}/${{PACKAGE_DIR_NAME}}/index.html" ]]; then
+    cp -R "${{SCRIPT_DIR}}/${{PACKAGE_DIR_NAME}}" "${{TARGET_DIR}}"
+elif [[ "${{PWD}}" == *.zip && -f "${{PWD}}" ]]; then
+    ditto -x -k "${{PWD}}" "${{TEMP_ROOT}}"
+else
+    echo "Could not locate the export files automatically."
+    echo "Please extract the zip, copy '${{PACKAGE_DIR_NAME}}' to any folder, and open index.html."
+    exit 1
+fi
+
+if [[ ! -f "${{TARGET_DIR}}/index.html" ]]; then
+    echo "Could not find '${{TARGET_DIR}}/index.html'."
+    echo "Please extract manually and open index.html."
+    exit 1
+fi
+
+open "${{TARGET_DIR}}/index.html"
+echo "Opened '${{TARGET_DIR}}/index.html'"
+"""
+
+
+def write_executable_file(zf: zipfile.ZipFile, path: str, content: str) -> None:
+    """
+    Writes a text file to the zip and marks it executable (Unix mode 755).
+    """
+    info = zipfile.ZipInfo(path)
+    info.external_attr = 0o755 << 16
+    zf.writestr(info, content)
+
+
 def build_zip(pages: list, root_slug: str, output_dir: Path, output_path: Path = None) -> Path:
     """
     Assembles the final zip file from rendered HTML pages and attachments.
@@ -99,7 +241,8 @@ def build_zip(pages: list, root_slug: str, output_dir: Path, output_path: Path =
     """
     date_str = datetime.date.today().strftime('%Y-%m-%d')
     zip_name = f"{root_slug}-{date_str}.zip"
-    folder_prefix = f"{root_slug}-{date_str}/"
+    package_dir_name = f"{root_slug}-{date_str}"
+    folder_prefix = f"{package_dir_name}/"
 
     if output_path is None:
         zip_path = output_dir / zip_name
@@ -111,6 +254,15 @@ def build_zip(pages: list, root_slug: str, output_dir: Path, output_path: Path =
     zip_path.parent.mkdir(parents=True, exist_ok=True)
 
     with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("index.html", generate_start_here_html(package_dir_name))
+        zf.writestr("START-HERE.html", generate_start_here_html(package_dir_name))
+        zf.writestr("START-HERE.txt", generate_start_here_txt(package_dir_name))
+        zf.writestr("Run-Export-Windows.cmd", generate_windows_launcher(package_dir_name))
+        write_executable_file(
+            zf,
+            "Run-Export-Mac.command",
+            generate_mac_launcher(package_dir_name),
+        )
         zf.writestr(folder_prefix + "index.html", generate_index_html(pages[0]))
 
         for page in pages:
@@ -199,6 +351,10 @@ def main() -> None:
     zip_path = build_zip(pages, root_slug, Path.cwd(), output_path)
 
     print(f"Export complete: {zip_path}")
+    print(
+        "Open the zip and use START-HERE.* for guidance: either copy the export folder "
+        "and open index.html manually, or run the OS launcher."
+    )
 
 
 def _handle_http_error(exc: requests.HTTPError, page_id: str) -> None:
