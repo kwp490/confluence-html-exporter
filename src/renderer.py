@@ -170,11 +170,57 @@ a.external::after { content: ' \\2197'; font-size: 0.75em; color: #888; }
 
 JS = """
 (function() {
-    function expandItem(li) {
-        if (li && li.classList && li.classList.contains('has-children')) {
-            li.classList.add('expanded');
+    var STORAGE_KEY = 'confluence-export-nav-expanded';
+
+    function loadExpanded() {
+        try {
+            var raw = window.localStorage.getItem(STORAGE_KEY);
+            if (!raw) { return {}; }
+            var parsed = JSON.parse(raw);
+            return (parsed && typeof parsed === 'object') ? parsed : {};
+        } catch (e) {
+            return {};
         }
     }
+
+    function saveExpanded(state) {
+        try {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (e) {
+            /* storage unavailable (e.g. private mode); ignore */
+        }
+    }
+
+    var expandedState = loadExpanded();
+
+    function itemId(li) {
+        var labelled = li.querySelector(':scope > .nav-row [data-id]');
+        return labelled ? labelled.getAttribute('data-id') : null;
+    }
+
+    function setExpanded(li, isExpanded, persist) {
+        if (!li || !li.classList.contains('has-children')) { return; }
+        li.classList.toggle('expanded', isExpanded);
+        if (persist) {
+            var id = itemId(li);
+            if (id) {
+                if (isExpanded) {
+                    expandedState[id] = true;
+                } else {
+                    delete expandedState[id];
+                }
+                saveExpanded(expandedState);
+            }
+        }
+    }
+
+    // Apply any previously persisted expand/collapse state first.
+    document.querySelectorAll('.nav-item.has-children').forEach(function(li) {
+        var id = itemId(li);
+        if (id && expandedState[id]) {
+            li.classList.add('expanded');
+        }
+    });
 
     // Identify the current page file name.
     var currentFile = decodeURIComponent(
@@ -195,20 +241,20 @@ JS = """
         activeLink.classList.add('active');
         // Expand this node's own children (if any).
         var ownItem = activeLink.closest('.nav-item');
-        expandItem(ownItem);
+        setExpanded(ownItem, true, true);
         // Expand every ancestor list item.
         var ancestor = ownItem ? ownItem.parentElement : null;
         while (ancestor) {
             if (ancestor.classList && ancestor.classList.contains('nav-item')) {
-                expandItem(ancestor);
+                setExpanded(ancestor, true, true);
             }
             ancestor = ancestor.parentElement;
         }
         activeLink.scrollIntoView({ block: 'nearest' });
-    } else {
-        // No match (e.g. root index redirect): expand the top level.
+    } else if (Object.keys(expandedState).length === 0) {
+        // No match and no saved state: expand the top level as a default.
         var root = document.querySelector('.nav-root > .nav-item');
-        expandItem(root);
+        setExpanded(root, true, true);
     }
 
     // Caret click toggles expansion without following any link.
@@ -218,7 +264,7 @@ JS = """
             event.stopPropagation();
             var li = caret.closest('.nav-item');
             if (li) {
-                li.classList.toggle('expanded');
+                setExpanded(li, !li.classList.contains('expanded'), true);
             }
         });
     });
@@ -228,7 +274,7 @@ JS = """
         label.addEventListener('click', function() {
             var li = label.closest('.nav-item');
             if (li) {
-                li.classList.toggle('expanded');
+                setExpanded(li, !li.classList.contains('expanded'), true);
             }
         });
     });
