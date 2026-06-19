@@ -111,14 +111,18 @@ html, body { height: 100%; }
 
 /* Nav items */
 .nav-list { list-style: none; padding: 0; margin: 0; }
-.nav-children { padding-left: 0.9rem; }
+.nav-children { padding-left: 0.75rem; display: none; }
+.nav-item.expanded > .nav-children { display: block; }
 .nav-item { margin: 1px 0; }
-.nav-link { display: block; padding: 0.28rem 0.6rem; border-radius: 4px; color: #cdd6f4; text-decoration: none; font-size: 0.82rem; line-height: 1.4; transition: background 0.1s; }
+.nav-row { display: flex; align-items: center; gap: 0.15rem; }
+.nav-caret { flex-shrink: 0; width: 1.1rem; height: 1.1rem; padding: 0; border: none; background: none; color: #6c7086; cursor: pointer; font-size: 0.6rem; line-height: 1; display: flex; align-items: center; justify-content: center; border-radius: 3px; transition: transform 0.12s ease, color 0.1s; }
+.nav-caret:hover { color: #cdd6f4; background: #313244; }
+.nav-item.expanded > .nav-row > .nav-caret { transform: rotate(90deg); }
+.nav-caret-spacer { flex-shrink: 0; width: 1.1rem; height: 1.1rem; }
+.nav-link { flex: 1; display: block; padding: 0.28rem 0.5rem; border-radius: 4px; color: #cdd6f4; text-decoration: none; font-size: 0.82rem; line-height: 1.4; transition: background 0.1s; cursor: pointer; }
 .nav-link:hover { background: #313244; color: #fff; }
 .nav-link.active { background: #45475a; color: #89b4fa; font-weight: 600; }
-.nav-toggle { display: block; padding: 0.28rem 0.6rem; border-radius: 4px; color: #a6adc8; font-size: 0.82rem; cursor: pointer; user-select: none; }
-.nav-toggle:hover { background: #313244; color: #cdd6f4; }
-.nav-folder-label { display: block; padding: 0.4rem 0.6rem 0.2rem 0.6rem; color: #6c7086; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.nav-folder-label { color: #a6adc8; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.04em; font-weight: 600; }
 
 /* Main content area */
 #main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
@@ -166,33 +170,65 @@ a.external::after { content: ' \\2197'; font-size: 0.75em; color: #888; }
 
 JS = """
 (function() {
-    // Highlight active page and expand ancestor nodes
-    var currentFile = window.location.pathname.split('/').pop() || 'index.html';
+    function expandItem(li) {
+        if (li && li.classList && li.classList.contains('has-children')) {
+            li.classList.add('expanded');
+        }
+    }
+
+    // Identify the current page file name.
+    var currentFile = decodeURIComponent(
+        window.location.pathname.split('/').pop() || 'index.html'
+    );
+
+    // Highlight the active page and expand the path leading to it,
+    // plus the active page's own children so they are immediately visible.
+    var activeLink = null;
     document.querySelectorAll('.nav-link').forEach(function(link) {
-        if (link.getAttribute('href') === currentFile) {
-            link.classList.add('active');
-            // Expand all ancestor nav-children lists
-            var parent = link.parentElement;
-            while (parent) {
-                if (parent.classList && parent.classList.contains('nav-children')) {
-                    parent.style.display = 'block';
-                }
-                parent = parent.parentElement;
-            }
+        var href = link.getAttribute('href');
+        if (href && decodeURIComponent(href) === currentFile) {
+            activeLink = link;
         }
     });
 
-    // Toggle child lists on click
-    document.querySelectorAll('.nav-toggle').forEach(function(toggle) {
-        toggle.addEventListener('click', function() {
-            var children = toggle.parentElement.querySelector('.nav-children');
-            if (children) {
-                var isHidden = children.style.display === 'none' || children.style.display === '';
-                children.style.display = isHidden ? 'block' : 'none';
-                toggle.textContent = toggle.textContent.replace(
-                    isHidden ? '\\u25b6' : '\\u25bc',
-                    isHidden ? '\\u25bc' : '\\u25b6'
-                );
+    if (activeLink) {
+        activeLink.classList.add('active');
+        // Expand this node's own children (if any).
+        var ownItem = activeLink.closest('.nav-item');
+        expandItem(ownItem);
+        // Expand every ancestor list item.
+        var ancestor = ownItem ? ownItem.parentElement : null;
+        while (ancestor) {
+            if (ancestor.classList && ancestor.classList.contains('nav-item')) {
+                expandItem(ancestor);
+            }
+            ancestor = ancestor.parentElement;
+        }
+        activeLink.scrollIntoView({ block: 'nearest' });
+    } else {
+        // No match (e.g. root index redirect): expand the top level.
+        var root = document.querySelector('.nav-root > .nav-item');
+        expandItem(root);
+    }
+
+    // Caret click toggles expansion without following any link.
+    document.querySelectorAll('.nav-caret').forEach(function(caret) {
+        caret.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            var li = caret.closest('.nav-item');
+            if (li) {
+                li.classList.toggle('expanded');
+            }
+        });
+    });
+
+    // Clicking a folder label (non-link) toggles its section.
+    document.querySelectorAll('.nav-folder-label').forEach(function(label) {
+        label.addEventListener('click', function() {
+            var li = label.closest('.nav-item');
+            if (li) {
+                li.classList.toggle('expanded');
             }
         });
     });
@@ -370,29 +406,40 @@ class HTMLRenderer:
 
         def render_node(node):
             children = [by_id[cid] for cid in node["children_ids"] if cid in by_id]
-            active = ' active' if node["id"] == current_page_id else ''
+            is_active = node["id"] == current_page_id
+            active = ' active' if is_active else ''
             title = html.escape(node["title"])
             filename = html.escape(node["html_filename"], quote=True)
+            has_children = bool(children)
+
+            caret = (
+                '<button type="button" class="nav-caret" aria-label="Toggle section">'
+                '\u25b6</button>'
+                if has_children
+                else '<span class="nav-caret-spacer"></span>'
+            )
 
             if node["type"] == "folder":
-                label = f'<span class="nav-folder-label">{title}</span>'
-                if children:
-                    inner = "".join(render_node(c) for c in children)
-                    return (
-                        f'<li class="nav-item has-children">{label}'
-                        f'<ul class="nav-list nav-children">{inner}</ul></li>'
-                    )
-                return f'<li class="nav-item">{label}</li>'
-
-            link = f'<a class="nav-link{active}" href="{filename}">{title}</a>'
-            if children:
-                inner = "".join(render_node(c) for c in children)
-                toggle = f'<span class="nav-toggle">\u25b6 {title}</span>'
-                return (
-                    f'<li class="nav-item has-children">{link}'
-                    f'<ul class="nav-list nav-children" style="display:none;">{inner}</ul></li>'
+                label = (
+                    f'<span class="nav-link nav-folder-label{active}" '
+                    f'data-id="{html.escape(node["id"], quote=True)}">{title}</span>'
                 )
-            return f'<li class="nav-item">{link}</li>'
+            else:
+                label = (
+                    f'<a class="nav-link{active}" href="{filename}" '
+                    f'data-id="{html.escape(node["id"], quote=True)}">{title}</a>'
+                )
+
+            row = f'<div class="nav-row">{caret}{label}</div>'
+
+            item_class = "nav-item has-children" if has_children else "nav-item"
+            if has_children:
+                inner = "".join(render_node(c) for c in children)
+                return (
+                    f'<li class="{item_class}">{row}'
+                    f'<ul class="nav-list nav-children">{inner}</ul></li>'
+                )
+            return f'<li class="{item_class}">{row}</li>'
 
         return f'<ul class="nav-list nav-root">{render_node(root)}</ul>'
 
