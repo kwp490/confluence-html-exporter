@@ -20,22 +20,10 @@ from dotenv import load_dotenv
 from src.api import ConfluenceClient
 from src.renderer import HTMLRenderer
 from src.tree import PageTreeBuilder
+from src.setup import ensure_config
 from src.utils import parse_confluence_url, setup_logging
 
 
-REQUIRED_KEYS = ["CONFLUENCE_BASE_URL", "CONFLUENCE_EMAIL", "CONFLUENCE_API_TOKEN"]
-
-
-def validate_config(config: dict) -> None:
-    """
-    Raises SystemExit with a clear message if any required env var is missing.
-    """
-    missing = [key for key in REQUIRED_KEYS if not config.get(key)]
-    if missing:
-        for key in missing:
-            print(f"ERROR: Missing required environment variable: {key}", file=sys.stderr)
-        print("Copy .env.example to .env and fill in your credentials.", file=sys.stderr)
-        raise SystemExit(1)
 
 
 def confirm_export(assume_yes: bool = False) -> None:
@@ -167,8 +155,7 @@ def main() -> None:
 
     confirm_export(args.yes)
 
-    config = {key: os.environ.get(key) for key in REQUIRED_KEYS}
-    validate_config(config)
+    config = ensure_config()
 
     try:
         base_url, root_page_id = parse_confluence_url(args.url)

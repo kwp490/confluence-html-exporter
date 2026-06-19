@@ -18,6 +18,7 @@ Designed to share Confluence documentation with external stakeholders who do not
 - Outputs a single `.zip` named `{root-page-slug}-{YYYY-MM-DD}.zip`
 - Runs on macOS and Windows (Python 3.8+)
 - All credentials are stored in a `.env` file; nothing is hardcoded
+- Interactive setup wizard guides first-time users through credential configuration with live validation
 
 ---
 
@@ -38,13 +39,22 @@ cd confluence-html-exporter
 pip install -r requirements.txt
 ```
 
-Copy `.env.example` to `.env` and fill in your credentials (see Configuration).
+On first run, the script will walk you through setting up your `.env` credentials interactively (see Configuration). You can also copy `.env.example` to `.env` and fill it in manually.
 
 ---
 
 ## Configuration
 
-All credentials are loaded from a `.env` file in the project root. The script will not run without all three variables set.
+All credentials are loaded from a `.env` file in the project root.
+
+If any credentials are missing, invalid, or still set to placeholder values, the script will automatically launch an **interactive setup wizard** that:
+
+1. Prompts for each missing value (the API token is entered securely without echoing)
+2. Validates the format of each field before accepting it
+3. Tests the credentials against the Confluence API
+4. Saves them to `.env` (with restricted file permissions) only after a successful authentication test
+
+In non-interactive environments (e.g. CI), the script exits with an error if credentials are incomplete  set them via environment variables or `.env` beforehand.
 
 ### `.env.example`
 
