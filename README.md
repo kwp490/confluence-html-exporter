@@ -1,8 +1,10 @@
 # confluence-html-exporter
 
-A command-line Python tool that exports a Confluence page and all of its child pages into a self-contained, navigable HTML package delivered as a `.zip` file. Inline images are base64-embedded in each HTML file. File attachments are packaged into an `/attachments/` folder inside the zip. Pages and folders whose titles contain the words `deprecated` or `internal` (case-insensitive) are skipped along with all their children.
+Confluence pages are not universally visible outside your organization, but opening a Confluence space publicly can create security, governance, and confidentiality risks.
 
-Designed to share Confluence documentation with external stakeholders who do not have Confluence access. The zip can be emailed, unzipped, and navigated entirely offline in any web browser.
+This command-line Python tool solves that by exporting a Confluence page and all of its child pages into a self-contained, navigable HTML package delivered as a `.zip` file for private sharing. Inline images are base64-embedded in each HTML file, file attachments are packaged into an `/attachments/` folder inside the zip, and pages/folders whose titles contain `deprecated` or `internal` (case-insensitive) are skipped along with all their children.
+
+Use it to send existing Confluence content privately (for example, by email or secure file transfer) to people who do not have Confluence access, while keeping the original site private.
 
 ---
 
