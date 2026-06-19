@@ -129,13 +129,18 @@ page-title-2025-06-19.zip
 
 When `-o`/`--output` is supplied, the zip is written to the directory or file path you specify (creating any missing folders). The final location is printed as `Export complete: {path}`.
 
-When you open the zip, use one of these options:
+When you open the zip, choose one of two options:
 
-1. Manual (recommended): copy the dated export folder (for example `page-title-2025-06-19\`) to any location and open its `index.html`.
-2. Auto-runner (Windows): run `Run-Export-Windows.cmd` from the zip root.
-3. Auto-runner (macOS): run `Run-Export-Mac.command` from the zip root.
+**Option 1 — Auto-extract and open.** Run the launcher for your OS from the zip root; it extracts the export to a temporary folder and opens `index.html` automatically:
 
-`START-HERE.txt` and `START-HERE.html` in the zip root provide the same quick guidance.
+- Windows: `Run-Export-Windows.cmd`
+- macOS: `Run-Export-Mac.command`
+
+The launchers work even if you run them directly from inside the zip viewer: if only the launcher file is extracted, it locates the original `.zip` (in the current folder, Downloads, Desktop, Documents, or your home folder) and extracts it for you. Depending on browser/OS security settings you may need to confirm a prompt or right-click → **Open**.
+
+**Option 2 — Manual.** Copy the dated export folder (for example `page-title-2025-06-19\`) to any location and open its `index.html`.
+
+`START-HERE.txt` and `START-HERE.html` in the zip root present these same two options (the HTML version includes clickable launcher links).
 
 ---
 

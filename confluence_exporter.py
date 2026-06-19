@@ -97,12 +97,33 @@ def generate_start_here_html(package_dir_name: str) -> str:
 <head>
     <meta charset="UTF-8">
     <title>Confluence Export - Start Here</title>
+    <style>
+        body {{ font-family: -apple-system, Segoe UI, Arial, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }}
+        .option {{ border: 1px solid #ddd; border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }}
+        h2 {{ margin-top: 0; }}
+        code {{ background: #f4f4f4; padding: 0.1rem 0.3rem; border-radius: 4px; }}
+        .note {{ color: #555; font-size: 0.9rem; }}
+    </style>
 </head>
 <body>
     <h1>Confluence Export Package</h1>
-    <p><strong>Recommended (manual):</strong> copy the <code>{package_dir_name}</code> folder to any location, then open <code>index.html</code> inside that folder.</p>
-    <p><strong>Auto-runner:</strong> run <code>Run-Export-Windows.cmd</code> (Windows) or <code>Run-Export-Mac.command</code> (macOS). It extracts to a temporary folder and opens the export automatically.</p>
-    <p><strong>If already extracted:</strong> <a href="{package_index}">open the exported site</a>.</p>
+    <p>Choose one of the two options below to view this exported Confluence content.</p>
+
+    <div class="option">
+        <h2>Option 1 &mdash; Auto-extract and open</h2>
+        <p>Click the launcher for your operating system. It extracts the export to a temporary folder and opens it automatically in your browser:</p>
+        <ul>
+            <li><a href="Run-Export-Windows.cmd">Windows: Run-Export-Windows.cmd</a></li>
+            <li><a href="Run-Export-Mac.command">macOS: Run-Export-Mac.command</a></li>
+        </ul>
+        <p class="note">Depending on your browser or OS security settings, you may need to confirm a prompt, or right-click the launcher and choose <em>Open</em>.</p>
+    </div>
+
+    <div class="option">
+        <h2>Option 2 &mdash; Manual</h2>
+        <p>Copy the <code>{package_dir_name}</code> folder to any location on your computer, then open <code>index.html</code> inside that folder.</p>
+        <p class="note">If you have already extracted this package, you can <a href="{package_index}">open the exported site</a> directly.</p>
+    </div>
 </body>
 </html>"""
 
@@ -114,110 +135,123 @@ def generate_start_here_txt(package_dir_name: str) -> str:
     return (
         "Confluence Export - START HERE\n"
         "==============================\n\n"
-        "You can use this package in either of these ways:\n"
-        f"1) Manual (recommended): copy the '{package_dir_name}' folder to any location and open 'index.html' inside that folder.\n"
-        "2) Auto-runner:\n"
+        "Choose ONE of the two options below.\n\n"
+        "------------------------------------------------------------\n"
+        "OPTION 1 - Auto-extract and open\n"
+        "------------------------------------------------------------\n"
+        "Run the launcher for your operating system. It extracts the\n"
+        "export to a temporary folder and opens index.html for you:\n"
         "   - Windows: run 'Run-Export-Windows.cmd'\n"
-        "   - macOS: run 'Run-Export-Mac.command'\n\n"
-        "Both runners extract/copy the export to a temporary folder and open index.html automatically.\n"
+        "   - macOS:   run 'Run-Export-Mac.command'\n\n"
+        "------------------------------------------------------------\n"
+        "OPTION 2 - Manual\n"
+        "------------------------------------------------------------\n"
+        f"Copy the '{package_dir_name}' folder to any location on your\n"
+        "computer, then open 'index.html' inside that folder.\n"
     )
 
 
 def generate_windows_launcher(package_dir_name: str) -> str:
     """
     Generates a Windows launcher that opens the export from a temporary folder.
+
+    Works both when run from an already-extracted folder (sibling export folder
+    present) and when double-clicked from inside the Windows zip viewer, in which
+    case only this .cmd is extracted to a temp folder. In that situation the
+    launcher locates the original .zip (e.g. in Downloads/Desktop/Documents) and
+    extracts it automatically.
     """
-    return f"""@echo off
-setlocal EnableExtensions EnableDelayedExpansion
+    template = r"""@echo off
+setlocal EnableExtensions
+set "PKG=__PKG__"
+set "SCRIPTDIR=%~dp0"
 
-set "SCRIPT_DIR=%~dp0"
-set "PACKAGE_DIR_NAME={package_dir_name}"
-set "TEMP_ROOT=%TEMP%\\confluence-export-%RANDOM%%RANDOM%"
-set "TARGET_DIR=%TEMP_ROOT%\\%PACKAGE_DIR_NAME%"
-
-echo Confluence export quick start:
-echo   Manual: copy "%PACKAGE_DIR_NAME%" to any folder, then open index.html.
-echo   Auto-runner: this script opens it automatically from a temp folder.
+echo ============================================================
+echo  Confluence Export - How to open this package
+echo ============================================================
+echo.
+echo  OPTION 1 - Auto-extract and open ^(this runner^)
+echo    Extracts the export to a temporary folder and opens
+echo    index.html in your browser automatically.
+echo.
+echo  OPTION 2 - Manual
+echo    Copy the "%PKG%" folder to any location, then open
+echo    index.html inside that folder.
+echo ============================================================
 echo.
 
-if exist "%SCRIPT_DIR%%PACKAGE_DIR_NAME%\\index.html" (
-    robocopy "%SCRIPT_DIR%%PACKAGE_DIR_NAME%" "%TARGET_DIR%" /E /NFL /NDL /NJH /NJS /NC /NS >nul
-    goto open_site
-)
-
-set "ARCHIVE_PATH="
-for %%I in ("%CD%") do (
-    if /I "%%~xI"==".zip" if exist "%%~fI" set "ARCHIVE_PATH=%%~fI"
-)
-
-if not defined ARCHIVE_PATH (
-    echo Could not locate the export files automatically.
-    echo Please extract the zip, copy "%PACKAGE_DIR_NAME%" to any folder, and open index.html.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $pkg=$env:PKG; $scriptDir=$env:SCRIPTDIR.TrimEnd([char]92); $tempRoot=Join-Path $env:TEMP ('confluence-export-' + [guid]::NewGuid().ToString('N')); New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null; $target=Join-Path $tempRoot $pkg; $siblingIndex=Join-Path (Join-Path $scriptDir $pkg) 'index.html'; if(Test-Path -LiteralPath $siblingIndex){ Copy-Item -LiteralPath (Join-Path $scriptDir $pkg) -Destination $target -Recurse -Force } else { $names=@($pkg + '.zip'); $leaf=Split-Path $scriptDir -Leaf; if($leaf -like '*.zip'){ $c=$leaf -replace '^Temp\d+_',''; $c=$c -replace '^.*\bfor ',''; if($c -and ($names -notcontains $c)){ $names += $c } } $dirs=@((Join-Path $env:USERPROFILE 'Downloads'),(Join-Path $env:USERPROFILE 'Desktop'),(Join-Path $env:USERPROFILE 'Documents'),$env:USERPROFILE,(Get-Location).Path,(Split-Path $scriptDir -Parent)); $zip=$null; foreach($d in $dirs){ if($d){ foreach($n in $names){ $p=Join-Path $d $n; if(Test-Path -LiteralPath $p){ $zip=$p; break } } }; if($zip){ break } } if(-not $zip){ Write-Host ''; Write-Host 'Could not automatically locate the export zip.'; Write-Host 'Please use OPTION 2: extract the zip, copy the folder, and open index.html.'; exit 1 } Expand-Archive -LiteralPath $zip -DestinationPath $tempRoot -Force } $index=Join-Path $target 'index.html'; if(-not (Test-Path -LiteralPath $index)){ Write-Host 'Could not find index.html after preparing the files.'; exit 1 } Start-Process $index; Write-Host ('Opened: ' + $index)"
+set "RC=%ERRORLEVEL%"
+if not "%RC%"=="0" (
+    echo.
+    echo The auto-runner could not finish. See the message above,
+    echo or use OPTION 2 to open the export manually.
     pause
-    exit /b 1
 )
-
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '%ARCHIVE_PATH%' -DestinationPath '%TEMP_ROOT%' -Force"
-
-if errorlevel 1 (
-    echo Automatic extraction failed.
-    echo Please extract manually and open "%PACKAGE_DIR_NAME%\\index.html".
-    pause
-    exit /b 1
-)
-
-:open_site
-if not exist "%TARGET_DIR%\\index.html" (
-    echo Could not find "%TARGET_DIR%\\index.html".
-    echo Please extract manually and open index.html.
-    pause
-    exit /b 1
-)
-
-start "" "%TARGET_DIR%\\index.html"
-echo Opened "%TARGET_DIR%\\index.html"
-endlocal
-exit /b 0
+endlocal & exit /b %RC%
 """
+    return template.replace("__PKG__", package_dir_name)
 
 
 def generate_mac_launcher(package_dir_name: str) -> str:
     """
     Generates a macOS launcher that opens the export from a temporary folder.
+
+    Works when run from an already-extracted folder (sibling export folder
+    present) and also falls back to locating the original .zip in common
+    locations (Downloads/Desktop/Documents/home) and extracting it.
     """
-    return f"""#!/bin/bash
+    template = r"""#!/bin/bash
 set -euo pipefail
 
+PKG="__PKG__"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PACKAGE_DIR_NAME="{package_dir_name}"
-TEMP_ROOT="$(mktemp -d "${{TMPDIR:-/tmp}}/confluence-export.XXXXXX")"
-TARGET_DIR="${{TEMP_ROOT}}/${{PACKAGE_DIR_NAME}}"
+TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/confluence-export.XXXXXX")"
+TARGET_DIR="${TEMP_ROOT}/${PKG}"
 
-echo "Confluence export quick start:"
-echo "  Manual: copy '${{PACKAGE_DIR_NAME}}' to any folder, then open index.html."
-echo "  Auto-runner: this script opens it automatically from a temp folder."
+cat <<'EOF'
+============================================================
+ Confluence Export - How to open this package
+============================================================
+
+ OPTION 1 - Auto-extract and open (this runner)
+   Extracts the export to a temporary folder and opens
+   index.html in your browser automatically.
+
+ OPTION 2 - Manual
+   Copy the export folder to any location, then open
+   index.html inside that folder.
+============================================================
+EOF
 echo
 
-if [[ -f "${{SCRIPT_DIR}}/${{PACKAGE_DIR_NAME}}/index.html" ]]; then
-    cp -R "${{SCRIPT_DIR}}/${{PACKAGE_DIR_NAME}}" "${{TARGET_DIR}}"
-elif [[ "${{PWD}}" == *.zip && -f "${{PWD}}" ]]; then
-    ditto -x -k "${{PWD}}" "${{TEMP_ROOT}}"
+if [[ -f "${SCRIPT_DIR}/${PKG}/index.html" ]]; then
+    cp -R "${SCRIPT_DIR}/${PKG}" "${TARGET_DIR}"
 else
-    echo "Could not locate the export files automatically."
-    echo "Please extract the zip, copy '${{PACKAGE_DIR_NAME}}' to any folder, and open index.html."
+    ZIP=""
+    for d in "${HOME}/Downloads" "${HOME}/Desktop" "${HOME}/Documents" "${HOME}" "$(pwd)"; do
+        if [[ -f "${d}/${PKG}.zip" ]]; then
+            ZIP="${d}/${PKG}.zip"
+            break
+        fi
+    done
+    if [[ -z "${ZIP}" ]]; then
+        echo "Could not automatically locate the export zip."
+        echo "Please use OPTION 2: extract the zip, copy the folder, and open index.html."
+        exit 1
+    fi
+    ditto -x -k "${ZIP}" "${TEMP_ROOT}"
+fi
+
+if [[ ! -f "${TARGET_DIR}/index.html" ]]; then
+    echo "Could not find index.html after preparing the files."
     exit 1
 fi
 
-if [[ ! -f "${{TARGET_DIR}}/index.html" ]]; then
-    echo "Could not find '${{TARGET_DIR}}/index.html'."
-    echo "Please extract manually and open index.html."
-    exit 1
-fi
-
-open "${{TARGET_DIR}}/index.html"
-echo "Opened '${{TARGET_DIR}}/index.html'"
+open "${TARGET_DIR}/index.html"
+echo "Opened: ${TARGET_DIR}/index.html"
 """
+    return template.replace("__PKG__", package_dir_name)
 
 
 def write_executable_file(zf: zipfile.ZipFile, path: str, content: str) -> None:
