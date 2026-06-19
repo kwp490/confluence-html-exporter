@@ -45,7 +45,9 @@ def confirm_export(assume_yes: bool = False) -> None:
         " does not already have access to this Confluence content.\n"
         "================================================================\n"
     )
-    print(warning, file=sys.stderr)
+    # Printed to stdout (not stderr) so shells like PowerShell don't render
+    # this informational banner as a red "error".
+    print(warning, file=sys.stdout)
 
     if assume_yes:
         return
@@ -63,7 +65,7 @@ def confirm_export(assume_yes: bool = False) -> None:
     except EOFError:
         response = ""
     if response not in ("y", "yes"):
-        print("Export cancelled.", file=sys.stderr)
+        print("Export cancelled.", file=sys.stdout)
         raise SystemExit(1)
 
 

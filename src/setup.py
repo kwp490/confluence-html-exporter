@@ -181,13 +181,13 @@ def _prompt_for_key(key: str, current: str | None) -> str:
 
         value = value.strip()
         if not value:
-            print("  Value cannot be empty. Please try again.", file=sys.stderr)
+            print("  Value cannot be empty. Please try again.", file=sys.stdout)
             continue
 
         if validator:
             err = validator(value)
             if err:
-                print(f"  {err}", file=sys.stderr)
+                print(f"  {err}", file=sys.stdout)
                 continue
 
         return value
@@ -237,7 +237,8 @@ def ensure_config() -> dict:
         )
         raise SystemExit(1)
 
-    # Interactive setup
+    # Interactive setup. Informational output goes to stdout (not stderr) so
+    # shells like PowerShell don't render these prompts as red "errors".
     print(
         "\n"
         "==================== Credential Setup ====================\n"
@@ -248,17 +249,17 @@ def ensure_config() -> dict:
         " To generate an API token, visit:\n"
         " https://id.atlassian.com/manage-profile/security/api-tokens\n"
         "==========================================================\n",
-        file=sys.stderr,
+        file=sys.stdout,
     )
 
     for key in needs_input:
         current = os.environ.get(key) or existing.get(key) or None
         if current and not _is_placeholder(current):
-            print(f"  {key} has a value but it failed validation.", file=sys.stderr)
+            print(f"  {key} has a value but it failed validation.", file=sys.stdout)
         config[key] = _prompt_for_key(key, current)
 
     # Live test before saving
-    print("\nTesting credentials against Confluence API...", file=sys.stderr)
+    print("\nTesting credentials against Confluence API...", file=sys.stdout)
     err = _test_credentials(
         config["CONFLUENCE_BASE_URL"],
         config["CONFLUENCE_EMAIL"],
@@ -272,13 +273,13 @@ def ensure_config() -> dict:
         )
         raise SystemExit(1)
 
-    print("  Authentication successful!\n", file=sys.stderr)
+    print("  Authentication successful!\n", file=sys.stdout)
 
     # Persist to .env
     env_values = _read_env_file()
     env_values.update(config)
     _write_env_file(env_values)
-    print(f"  Credentials saved to {ENV_FILE}", file=sys.stderr)
+    print(f"  Credentials saved to {ENV_FILE}", file=sys.stdout)
 
     # Also inject into current process environment
     for key, val in config.items():
