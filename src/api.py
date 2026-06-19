@@ -62,6 +62,26 @@ class ConfluenceClient:
                 url = None
         return results
 
+    def download_attachment(self, download_link: str) -> bytes:
+        """
+        Downloads an attachment using a Confluence REST ``_links.download`` path.
+
+        These links (e.g. ``/rest/api/content/{id}/child/attachment/{att}/download``)
+        are returned relative to the Confluence context root, which on Confluence
+        Cloud is ``/wiki``. The raw image ``src`` values found in exported page HTML
+        (``/wiki/download/attachments/...``) reject API-token authentication with a
+        401, whereas these REST download links authenticate correctly, so the
+        context prefix is restored here when it is missing.
+        """
+        if download_link.startswith("http"):
+            url = download_link
+        else:
+            link = "/" + download_link.lstrip("/")
+            if not link.startswith("/wiki/"):
+                link = "/wiki" + link
+            url = self.base_url + link
+        return self.download_binary(url)
+
     def download_binary(self, path_or_url: str) -> bytes:
         """
         Downloads a binary resource (image or file).

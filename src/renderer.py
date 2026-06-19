@@ -3,7 +3,7 @@ import html
 import logging
 import mimetypes
 import re
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse, urljoin, unquote
 
 from bs4 import BeautifulSoup
 
@@ -258,7 +258,25 @@ class HTMLRenderer:
         netloc = urlparse(src).netloc
         return netloc == urlparse(self.base_url).netloc
 
+    def _attachment_download_links(self, page: dict) -> dict:
+        """
+        Maps attachment filename -> REST download link for the given page.
+
+        Exported page HTML references images by a ``/wiki/download/attachments``
+        ``src`` URL that rejects API-token authentication (401). The attachments
+        REST API instead exposes an authenticated ``downloadLink`` per file, so
+        images are resolved to those links by matching on filename.
+        """
+        mapping = {}
+        for att in page.get("attachments", []):
+            title = att.get("title")
+            link = att.get("downloadLink") or att.get("_links", {}).get("download")
+            if title and link:
+                mapping[title] = link
+        return mapping
+
     def _embed_images(self, soup: BeautifulSoup, page: dict) -> BeautifulSoup:
+        download_links = self._attachment_download_links(page)
         for img in soup.find_all("img"):
             src = img.get("src", "")
             if not src or src.startswith("data:"):
@@ -266,9 +284,14 @@ class HTMLRenderer:
             if not self._is_confluence_hosted(src):
                 continue
             abs_url = src if src.startswith("http") else urljoin(self.base_url + "/", src.lstrip("/"))
+            filename = unquote(src.split("?")[0].split("/")[-1])
+            download_link = download_links.get(filename)
             try:
-                img_bytes = self.client.download_binary(abs_url)
-                mime_type = mimetypes.guess_type(abs_url)[0] or "image/png"
+                if download_link:
+                    img_bytes = self.client.download_attachment(download_link)
+                else:
+                    img_bytes = self.client.download_binary(abs_url)
+                mime_type = mimetypes.guess_type(filename)[0] or "image/png"
                 encoded = base64.b64encode(img_bytes).decode("ascii")
                 img["src"] = f"data:{mime_type};base64,{encoded}"
             except Exception as exc:
@@ -287,11 +310,11 @@ class HTMLRenderer:
             media_type = att.get("mediaType", "") or ""
             if media_type.startswith("image/"):
                 continue
-            download = att.get("_links", {}).get("download")
+            download = att.get("downloadLink") or att.get("_links", {}).get("download")
             if not download:
                 continue
             try:
-                data = self.client.download_binary(download)
+                data = self.client.download_attachment(download)
                 files[sanitize_attachment_filename(att["title"])] = data
             except Exception as exc:
                 logging.warning(
