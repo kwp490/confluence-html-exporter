@@ -143,6 +143,19 @@ confluence-html-exporter/
 
 ---
 
+## Security
+
+- **Automated secret scanning** runs on every push and pull request via the
+  [`Secret Scan`](.github/workflows/secret-scan.yml) GitHub Actions workflow
+  (gitleaks), which also scans the full git history. Custom rules and
+  placeholder allowlists live in [`.gitleaks.toml`](.gitleaks.toml).
+- GitHub-native **secret scanning** and **push protection** are also enabled on
+  this repository.
+- Never commit a real `.env`; it is git-ignored. Only `.env.example` with
+  placeholder values is tracked.
+
+---
+
 ## License
 
 MIT License. See [LICENSE](LICENSE).

@@ -1,0 +1,34 @@
+# gitleaks configuration for confluence-html-exporter
+# Extends the default gitleaks ruleset with project-specific rules and
+# allowlists the documented non-secret placeholders.
+title = "confluence-html-exporter gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "atlassian-api-token"
+description = "Atlassian / Confluence API token"
+regex = '''(?i)ATATT3[A-Za-z0-9_\-=]{20,}'''
+keywords = ["atatt"]
+
+[[rules]]
+id = "confluence-dotenv-token"
+description = "Populated CONFLUENCE_API_TOKEN in committed env file"
+regex = '''(?i)CONFLUENCE_API_TOKEN\s*=\s*[A-Za-z0-9_\-]{8,}'''
+keywords = ["confluence_api_token"]
+
+[allowlist]
+description = "Documented placeholders and example values (not real secrets)"
+regexes = [
+  '''your_api_token_here''',
+  '''ATATTxxx\.\.\.''',
+  '''you@example\.com''',
+  '''user@example\.com''',
+  '''your-instance\.atlassian\.net''',
+  '''example\.atlassian\.net''',
+]
+paths = [
+  '''\.env\.example$''',
+  '''README\.md$''',
+]
