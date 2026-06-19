@@ -56,7 +56,7 @@ If any credentials are missing, invalid, or still set to placeholder values, the
 
 In non-interactive environments (e.g. CI), the script exits with an error if credentials are incomplete  set them via environment variables or `.env` beforehand.
 
-> HTTPS required: The Confluence base URL must use `https://` so your email and API token are never sent over an unencrypted connection. Plain `http://` is rejected unless you explicitly opt in for a trusted on-prem network by setting `CONFLUENCE_ALLOW_INSECURE_HTTP=1`.
+> HTTPS required: The Confluence base URL must use `https://` so your email and API token are never sent over an unencrypted connection. Plain `http://` is always rejected and there is no override.
 
 ### `.env.example`
 
@@ -73,7 +73,6 @@ CONFLUENCE_API_TOKEN=your_api_token_here
 | `CONFLUENCE_BASE_URL` | Base URL of your Confluence instance | `https://example.atlassian.net` |
 | `CONFLUENCE_EMAIL` | Your Atlassian account email address | `user@example.com` |
 | `CONFLUENCE_API_TOKEN` | Your Confluence API token | `ATATTxxx...` |
-| `CONFLUENCE_ALLOW_INSECURE_HTTP` | _(optional)_ Set to `1` to allow an `http://` base URL on a trusted network. Not recommended. | `1` |
 
 ### Generating an API Token
 
@@ -168,8 +167,8 @@ confluence-html-exporter/
 - GitHub-native **secret scanning** and **push protection** are also enabled on
   this repository.
 - **Credentials are only ever transmitted over HTTPS.** Plain `http://` base
-  URLs are rejected unless explicitly overridden (see
-  `CONFLUENCE_ALLOW_INSECURE_HTTP`), so your API token cannot be intercepted.
+  URLs are always rejected (no override), so your API token cannot be
+  intercepted.
 - **Exported HTML is sanitized** before packaging: script-bearing tags, inline
   event handlers, dangerous URL schemes, and outbound resource-loading
   attributes (`srcset`, `poster`, CSS `url(...)`, etc.) are stripped so the
